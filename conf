@@ -1,0 +1,5 @@
+export INTERVAL=120 # time in seconds to recheck battery
+export LEVEL_WARN=20 # % level at which to start sending warning notifications
+export LEVEL_CRIT=6 # % level at which to suspend system
+export BAT=BAT0 # Battery index to monitor
+export VERBOSE=True # truthy by default if set, set to "No" "false" or unset to disable

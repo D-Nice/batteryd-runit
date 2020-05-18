@@ -1,0 +1,50 @@
+#!/bin/sh
+exec 2>&1
+[ -r conf ] && . ./conf
+set -e
+
+verbose_echo()
+{
+  [ -n "${VERBOSE##[NFnf]*}" ] && \
+    echo "$@"
+}
+notify_all()
+{
+  LOGGED_USERS=$(who | awk '{print $1 " "}')
+  for user in $LOGGED_USERS; do
+
+    # grab the user's running DISPLAY
+    disp=$(ps -u "$user" -o pid= |
+      xargs -I{} cat /proc/{}/environ 2>/dev/null |
+      tr '\0' '\n' |
+      grep -m1 '^DISPLAY=')
+    # check used X DISPLAY exists for the logged in user
+    if [ -n "$disp" ]; then
+      verbose_echo attempting to notify "$user" on "$disp"
+      # run notify-send with passed command
+      sudo -u "$user" "$disp" /bin/notify-send "$@"
+    fi
+  done
+}
+
+echo "starting..."
+
+while true
+do
+  battery_status=$(cat /sys/class/power_supply/"$BAT"/status)
+  if [ "$battery_status" = "Discharging" ]; then
+    battery_level=$(cat /sys/class/power_supply/"$BAT"/capacity)
+    if [ "$battery_level" -le "$LEVEL_WARN" ]; then
+      verbose_echo warning level hit... beginning to notify users
+      notify_all "Battery low" "Battery level is ${battery_level}%!"
+    elif [ "$battery_level" -le "$LEVEL_CRIT" ]; then
+      verbose_echo critical level hit... beginning to notify users
+      notify_all "Battery very low" "Battery level is ${battery_level}%! Suspending system in 30 seconds." -u critical
+      echo waiting 30s before system suspend...
+      sleep 30
+      zzz
+    fi
+  fi
+
+  sleep "$INTERVAL"
+done
